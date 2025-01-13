@@ -1,70 +1,26 @@
 @import "tailwindcss";
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@font-face {
+  font-family: "ArcaneNine";
+  src: url("./assets/fonts/ArcaneNine.otf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+html, body {
+    height: 100%; /* Ensure both html and body fill the viewport */
+    margin: 0; /* Remove default margin */
+    background: linear-gradient(to bottom, #1e3a8a, #9333ea); /* Match your background gradient */
+    overflow: hidden; /* Disable scrollbars completely */
+    overscroll-behavior: none; /* Prevent overscrolling on touch devices */
   }
-  a:hover {
-    color: #747bff;
+  
+  body {
+    font-family: 'ArcaneNine', sans-serif; /* Apply your custom font */
+    overflow-y: auto; /* Enable vertical scrolling only for the body */
   }
-  button {
-    background-color: #f9f9f9;
+
+@theme {
+    --font-arcane: 'ArcaneNine', sans-serif;
+
   }
-}
