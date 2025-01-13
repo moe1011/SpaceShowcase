@@ -86,12 +86,12 @@ function NasaImage() {
   };
 
   return (
-    <div className="NasaImage text-white ">
+    <div className="NasaImage text-white">
       <h1 className="text-2xl text-center sm:text-left">The Space Showcase</h1>
       <button
         onClick={() => fetchRandomImage()}
         disabled={loading}
-        className="bg-green-300 text-black w-24 h-10 rounded-xl fixed sm:right-10 sm:top-10 right-2 bottom-20 
+        className="bg-green-300 text-black w-24 h-14 rounded-xl fixed bottom-10 inset-x-0 mx-auto sm:inset-auto sm:bottom-auto sm:right-10 sm:top-10
       duration-200 hover:cursor-pointer hover:bg-green-400 active:bg-green-500 text-lg z-50"
       >
         {loading ? "Loading..." : "Next Image"}
