@@ -1,5 +1,3 @@
-// src/hooks/useAudioLogic.js
-
 import { useState, useRef } from "react";
 
 /**
@@ -23,6 +21,20 @@ export default function useAudioLogic() {
   const dataArrayRef = useRef(null);
 
   /**
+   * Unlocks the AudioContext on user interaction (necessary for Safari on iOS).
+   */
+  const unlockAudioContext = () => {
+    if (
+      audioContextRef.current &&
+      audioContextRef.current.state === "suspended"
+    ) {
+      audioContextRef.current
+        .resume()
+        .catch((err) => console.error("Failed to unlock audio context:", err));
+    }
+  };
+
+  /**
    * Main method to start playback from a given URL,
    * hook it up to an AnalyserNode for volume detection,
    * and set up event listeners for playing/pausing/ending.
@@ -33,22 +45,30 @@ export default function useAudioLogic() {
     const newAudio = new Audio(url);
     audioRef.current = newAudio;
 
-    // Create new AudioContext + analyser
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    audioContextRef.current = audioContext;
+    // Create or reuse the AudioContext
+    if (!audioContextRef.current) {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      audioContextRef.current = audioContext;
+    }
 
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256; // smaller => more frequent data updates
-    analyserRef.current = analyser;
+    // Unlock the AudioContext (important for Safari)
+    unlockAudioContext();
 
-    // Connect audio -> analyser -> destination
-    const source = audioContext.createMediaElementSource(newAudio);
-    source.connect(analyser);
-    analyser.connect(audioContext.destination);
+    // Create analyser if it doesn't exist
+    if (!analyserRef.current) {
+      const analyser = audioContextRef.current.createAnalyser();
+      analyser.fftSize = 256; // smaller => more frequent data updates
+      analyserRef.current = analyser;
 
-    // Array to store frequency data
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    dataArrayRef.current = dataArray;
+      // Connect audio -> analyser -> destination
+      const source = audioContextRef.current.createMediaElementSource(newAudio);
+      source.connect(analyser);
+      analyser.connect(audioContextRef.current.destination);
+
+      // Array to store frequency data
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      dataArrayRef.current = dataArray;
+    }
 
     // Event listeners
     newAudio.onplay = () => {
@@ -139,9 +159,7 @@ export default function useAudioLogic() {
     if (isAudioPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play().catch((err) => {
-        console.error("Audio playback error:", err);
-      });
+      playAudio(audioRef.current.src);
     }
   }
 
