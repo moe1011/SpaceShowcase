@@ -204,10 +204,10 @@ function NasaImage() {
         className="group bg-green-300 text-black w-24 h-14 rounded-xl fixed bottom-10 inset-x-0 mx-auto 
                     flex items-center justify-center text-4xl
                     sm:inset-auto sm:bottom-auto sm:right-10 sm:top-10 duration-200 
-                    hover:cursor-pointer hover:bg-green-400 active:bg-green-500 z-50"
+                    hover:cursor-pointer sm:hover:bg-green-400 sm:active:bg-green-500 z-50"
       >
         <div className={loading ? "animate-spin" : ""}>
-          <div className="group-hover:text-[2.7rem]  duration-300 ease-in-out">
+          <div className="sm:group-hover:text-[2.7rem]  duration-300 ease-in-out">
             {loading ? <TbLoader2 /> : <TbPlayerTrackNext />}
           </div>
         </div>
@@ -220,13 +220,13 @@ function NasaImage() {
           disabled={ttsLoading}
           className={`group z-50 bg-blue-300 text-black w-24 h-14 fixed bottom-10 left-5 sm:top-28 sm:right-10 sm:left-auto
               rounded-xl text-4xl flex items-center justify-center
-              duration-200 hover:cursor-pointer hover:bg-blue-400 
-              active:bg-blue-500 text-md mt-4 ml-2
+              duration-200 hover:cursor-pointer sm:hover:bg-blue-400 
+              sm:active:bg-blue-500 text-md mt-4 ml-2
               ${!ttsLoading ? " animate-rainbow-ring" : ""}
             `}
         >
           <div className={`${ttsLoading ? "animate-spin" : ""}`}>
-            <div className="group-hover:rotate-12 duration-300 ease-in-out">
+            <div className="sm:group-hover:rotate-12 duration-300 ease-in-out">
               {ttsLoading ? <TbLoader2 /> : <TbMoodSpark />}
             </div>
           </div>
@@ -239,8 +239,8 @@ function NasaImage() {
           onClick={togglePlayPause}
           className="bg-gray-300 text-black w-14 h-14 rounded-full ml-2 fixed bottom-28 left-9 sm:top-28 sm:right-40 sm:left-auto
                     flex items-center justify-center text-3xl
-                       duration-200 hover:cursor-pointer hover:bg-gray-400 
-                       active:bg-gray-500 text-md z-50 mt-4"
+                       duration-200 hover:cursor-pointer sm:hover:bg-gray-400 
+                       sm:active:bg-gray-500 text-md z-50 mt-4"
         >
           {isAudioPlaying ? <TbPlayerPause /> : <TbPlayerPlay />}
         </button>
