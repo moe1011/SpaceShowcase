@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @font-face {
   font-family: "ArcaneNine";
@@ -7,20 +9,20 @@
   font-style: normal;
 }
 
-html, body {
-    height: 100%; /* Ensure both html and body fill the viewport */
-    margin: 0; /* Remove default margin */
-    background: linear-gradient(to bottom, #1e3a8a, #9333ea); /* Match your background gradient */
-    overflow: hidden; /* Disable scrollbars completely */
-    overscroll-behavior: none; /* Prevent overscrolling on touch devices */
-  }
-  
-  body {
-    font-family: 'ArcaneNine', sans-serif; /* Apply your custom font */
-    overflow-y: auto; /* Enable vertical scrolling only for the body */
-  }
+html,
+body {
+  height: 100%; /* Ensure both html and body fill the viewport */
+  margin: 0; /* Remove default margin */
+  background: linear-gradient(
+    to bottom,
+    #1e3a8a,
+    #9333ea
+  ); /* Match your background gradient */
+  overflow: hidden; /* Disable scrollbars completely */
+  overscroll-behavior: none; /* Prevent overscrolling on touch devices */
+}
 
-@theme {
-    --font-arcane: 'ArcaneNine', sans-serif;
-
-  }
+body {
+  font-family: "ArcaneNine", sans-serif; /* Apply your custom font */
+  overflow-y: auto; /* Enable vertical scrolling only for the body */
+}

@@ -1,39 +1,58 @@
-/* eslint-disable react/prop-types */
-import { useState, useEffect, useRef } from "react";
+// src/components/NasaImage.jsx
+
+import { useState, useEffect } from "react";
+import ExpertPuppet from "./ExpertPuppet";
+// Import our new hook
+import useAudioLogic from "../hooks/useAudioLogic";
+import {
+  TbMoodSpark,
+  TbLoader2,
+  TbPlayerPlay,
+  TbPlayerPause,
+  TbPlayerTrackNext,
+} from "react-icons/tb";
 
 function NasaImage() {
   const [imageData, setImageData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading for NASA fetch
   const [error, setError] = useState(null);
 
-  // Holds the local audio URL (blob) for the *current* image
+  // For storing the final TTS audio URL
   const [expertAudioUrl, setExpertAudioUrl] = useState(null);
 
-  // Tracks whether audio is currently playing (for showing Pause/Play)
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  // Whether we’re currently generating TTS
+  const [ttsLoading, setTtsLoading] = useState(false);
 
-  // Tracks whether the expert audio **has started** at least once
-  // (controls whether the play/pause button is even shown)
-  const [hasExpertStarted, setHasExpertStarted] = useState(false);
+  // Use our audio logic hook
+  const {
+    isAudioPlaying,
+    isSpeaking,
+    hasExpertStarted,
+    playAudio,
+    stopAudio,
+    togglePlayPause,
+    resetPuppet,
+  } = useAudioLogic();
 
-  // Reference to the actual Audio object
-  const audioRef = useRef(null);
-
-  // On mount, fetch a random NASA image
+  // On mount, fetch an image
   useEffect(() => {
     fetchRandomImage();
+    // Cleanup on unmount
+    return () => {
+      stopAudio();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
-   * Fetches a random NASA image from the /api/nasa route
-   * Resets audio / UI states for the new image
+   * Fetch a random NASA image from /api/nasa
+   * Reset puppet + audio states before new fetch
    */
   const fetchRandomImage = async (retryCount = 3) => {
-    stopCurrentAudio();
-    // Reset any existing audio state so we do a fresh call if user wants TTS again
+    stopAudio();
+    resetPuppet();
     setExpertAudioUrl(null);
-    setIsAudioPlaying(false);
-    setHasExpertStarted(false);
+    setLoading(true);
 
     if (retryCount === 3) setLoading(true);
     setError(null);
@@ -60,6 +79,7 @@ function NasaImage() {
 
       const data = await response.json();
       setImageData(data);
+      setLoading(false);
       setError(null);
     } catch (err) {
       console.error("Error fetching image:", err);
@@ -70,131 +90,86 @@ function NasaImage() {
   };
 
   /**
-   * If we already have an expertAudioUrl, just replay it.
-   * Otherwise, rewrite the NASA explanation via GPT-4o and get new TTS audio.
+   * Called when user clicks "Expert Explanation".
+   * If we already have an audio URL, just replay it.
+   * Otherwise, rewrite the explanation and get fresh TTS.
    */
   const handleRewriteAndTTS = async () => {
     if (!imageData) return;
 
-    // If we already generated audio for this image, just replay
+    // If we already have TTS for this image, just play it
     if (expertAudioUrl) {
       playAudio(expertAudioUrl);
       return;
     }
 
-    // Otherwise, call the rewrite and TTS APIs
-    stopCurrentAudio(); // ensure no overlap
+    stopAudio(); // ensure no overlap
 
     try {
-      // Step 1: Rewrite
+      // Show "loading" indicator on Expert button
+      setTtsLoading(true);
+
+      // 1) Rewrite
       const rewriteResp = await fetch("/api/rewriteExplanation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ explanation: imageData.explanation }),
       });
-
       if (!rewriteResp.ok) {
         throw new Error("Failed to rewrite the explanation");
       }
-
       const { newExplanation } = await rewriteResp.json();
 
-      // Step 2: Combine text for TTS
-      const finalText = `Hello, I'm your excited cosmic scientist. 
-        Here's the photo titled "${imageData.title}". 
-        ${newExplanation}`;
+      // 2) Prepare final text
+      const finalText = `Hello, I'm your cosmic scientist.
+         Here's the photo titled "${imageData.title}".
+         ${newExplanation}`;
 
-      // Step 3: TTS
+      // 3) TTS
       const ttsResponse = await fetch("/api/generateTTS", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: finalText }),
       });
-
       if (!ttsResponse.ok) {
         throw new Error("Failed to generate TTS audio");
       }
 
-      // Step 4: Convert response to blob -> URL
+      // Convert to a local URL for <Audio>
       const audioBlob = await ttsResponse.blob();
       const newAudioUrl = URL.createObjectURL(audioBlob);
       setExpertAudioUrl(newAudioUrl);
 
-      // Play the newly generated audio
+      // Start playback
       playAudio(newAudioUrl);
     } catch (err) {
       console.error("Error in rewrite or TTS:", err.message);
+    } finally {
+      // Hide "loading" indicator
+      setTtsLoading(false);
     }
   };
 
   /**
-   * Plays the audio from a given URL.
-   * Sets up event listeners to track play/pause/end so we can update the UI.
+   * Utility: Return a random date in the NASA APOD range
    */
-  const playAudio = (url) => {
-    stopCurrentAudio(); // stop if something else is playing
-
-    const newAudio = new Audio(url);
-    audioRef.current = newAudio;
-
-    // Update state upon playback changes
-    newAudio.onplay = () => {
-      setIsAudioPlaying(true);
-      setHasExpertStarted(true); // "Expert" audio is now actually heard
-    };
-    newAudio.onpause = () => setIsAudioPlaying(false);
-    newAudio.onended = () => setIsAudioPlaying(false);
-
-    // Attempt to play
-    newAudio.play().catch((err) => {
-      console.error("Audio playback error:", err);
-    });
-  };
-
-  /**
-   * Pauses or resumes the current audio, depending on its state.
-   */
-  const togglePlayPause = () => {
-    if (!audioRef.current) return;
-
-    if (isAudioPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play().catch((err) => {
-        console.error("Audio playback error:", err);
-      });
-    }
-  };
-
-  /**
-   * Immediately stops the currently playing audio
-   */
-  const stopCurrentAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0; // reset to beginning
-      audioRef.current = null;
-    }
-    setIsAudioPlaying(false);
-  };
-
-  /**
-   * Generates a random date between startDate and endDate
-   */
-  const getRandomDate = (startDate, endDate) => {
+  function getRandomDate(startDate, endDate) {
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
     const randomTime = start + Math.random() * (end - start);
     return new Date(randomTime).toISOString().split("T")[0];
-  };
+  }
 
-  // Renders image or video
+  /**
+   * For images vs. videos
+   */
+  // eslint-disable-next-line react/prop-types
   function MediaComponent({ mediaType, url, title }) {
     if (mediaType === "image") {
       return (
         <div>
           <img
-            className="sm:max-h-[500px] hover:scale-105 duration-500 hover:cursor-pointer hover:shadow-2xl shadow-lg border-3"
+            className="sm:max-h-[500px] hover:scale-105 duration-500 hover:cursor-pointer hover:shadow-2xl shadow-lg border-[3px]"
             src={url}
             alt={title}
             onClick={() => window.open(url, "_blank")}
@@ -205,7 +180,7 @@ function NasaImage() {
       return (
         <div className="aspect-video">
           <iframe
-            className="w-[1000px] h-[500px]"
+            className="w-[300px] h-[150px]  sm:w-[1000px] sm:h-[500px]"
             src={url}
             title={title}
             allow="autoplay; encrypted-media"
@@ -219,47 +194,70 @@ function NasaImage() {
   }
 
   return (
-    <div className="NasaImage text-white">
+    <div className="NasaImage text-white relative">
       <h1 className="text-2xl text-center sm:text-left">The Space Showcase</h1>
 
-      {/* Fetch next random NASA image */}
+      {/* Next Image Button */}
       <button
         onClick={fetchRandomImage}
         disabled={loading}
-        className="bg-green-300 text-black w-24 h-14 rounded-xl fixed bottom-10 inset-x-0 mx-auto sm:inset-auto sm:bottom-auto sm:right-10 sm:top-10
-      duration-200 hover:cursor-pointer hover:bg-green-400 active:bg-green-500 text-lg z-50"
+        className="group bg-green-300 text-black w-24 h-14 rounded-xl fixed bottom-10 inset-x-0 mx-auto 
+                    flex items-center justify-center text-4xl
+                    sm:inset-auto sm:bottom-auto sm:right-10 sm:top-10 duration-200 
+                    hover:cursor-pointer hover:bg-green-400 active:bg-green-500 z-50"
       >
-        {loading ? "Loading..." : "Next Image"}
+        <div className={loading ? "animate-spin" : ""}>
+          <div className="group-hover:text-[2.7rem]  duration-300 ease-in-out">
+            {loading ? <TbLoader2 /> : <TbPlayerTrackNext />}
+          </div>
+        </div>
       </button>
 
-      {/* Button to generate or replay TTS explanation for the current image */}
+      {/* Expert Explanation Button */}
       {imageData && (
         <button
           onClick={handleRewriteAndTTS}
-          className="bg-blue-300 text-black w-40 h-10 rounded-xl
-            duration-200 hover:cursor-pointer hover:bg-blue-400 active:bg-blue-500 text-md z-50 mt-4"
+          disabled={ttsLoading}
+          className={`group z-50 bg-blue-300 text-black w-24 h-14 fixed bottom-10 left-5 sm:top-28 sm:right-10 sm:left-auto
+              rounded-xl text-4xl flex items-center justify-center
+              duration-200 hover:cursor-pointer hover:bg-blue-400 
+              active:bg-blue-500 text-md mt-4 ml-2
+              ${!ttsLoading ? " animate-rainbow-ring" : ""}
+            `}
         >
-          Expert Explanation
+          <div className={`${ttsLoading ? "animate-spin" : ""}`}>
+            <div className="group-hover:rotate-12 duration-300 ease-in-out">
+              {ttsLoading ? <TbLoader2 /> : <TbMoodSpark />}
+            </div>
+          </div>
         </button>
       )}
 
-      {/* Show Play/Pause button ONLY after the audio has started at least once */}
+      {/* Play/Pause Button: only show if we've started at least once */}
       {hasExpertStarted && (
         <button
           onClick={togglePlayPause}
-          className="bg-gray-300 text-black w-24 h-10 rounded-xl ml-2
-            duration-200 hover:cursor-pointer hover:bg-gray-400 active:bg-gray-500 text-md z-50 mt-4"
+          className="bg-gray-300 text-black w-14 h-14 rounded-full ml-2 fixed bottom-28 left-9 sm:top-28 sm:right-40 sm:left-auto
+                    flex items-center justify-center text-3xl
+                       duration-200 hover:cursor-pointer hover:bg-gray-400 
+                       active:bg-gray-500 text-md z-50 mt-4"
         >
-          {isAudioPlaying ? "Pause" : "Play"}
+          {isAudioPlaying ? <TbPlayerPause /> : <TbPlayerPlay />}
         </button>
       )}
 
-      {/* Error Display */}
+      {/* Error, if any */}
       {error && !imageData && <p style={{ color: "red" }}>Error: {error}</p>}
 
-      {/* NASA image display */}
+      {/* 
+          Render NASA image or video
+          NOTE: we add a conditional margin-right to avoid puppet overlap if it's visible
+        */}
       {imageData && (
-        <div className="flex flex-col w-full h-full items-center justify-center pt-5">
+        <div
+          className={`
+              flex flex-col w-full h-full items-center justify-center pt-5 transition-all duration-300`}
+        >
           <h2 className="text-3xl text-center">{imageData.title}</h2>
           <p className="text-lg text-center">{imageData.date}</p>
           <div className="py-7 w-fit h-fit">
@@ -269,9 +267,19 @@ function NasaImage() {
               title={imageData.title}
             />
           </div>
-          <p className="text-xl">{imageData.explanation}</p>
+          <p
+            className={`text-xl ${
+              hasExpertStarted ? "sm:pr-[256px] duration-500 ease-in-out" : ""
+            }`}
+          >
+            {imageData.explanation}
+          </p>
         </div>
       )}
+
+      {/* The Puppet! Slides in when hasExpertStarted=true 
+            Bobs if isSpeaking=true (only while volume > threshold) */}
+      <ExpertPuppet isVisible={hasExpertStarted} isSpeaking={isSpeaking} />
     </div>
   );
 }
