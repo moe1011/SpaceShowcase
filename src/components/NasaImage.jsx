@@ -9,7 +9,7 @@ import {
   TbPlayerPlay,
   TbPlayerPause,
   TbPlayerTrackNext,
-  TbRefreshAlert
+  TbRefreshAlert,
 } from "react-icons/tb";
 
 function NasaImage() {
@@ -40,7 +40,7 @@ function NasaImage() {
   useEffect(() => {
     fetchRandomImage();
     return () => {
-      stopAudio(); 
+      stopAudio();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -129,7 +129,6 @@ function NasaImage() {
       // Start puppet + audio
       startPuppetAndPlay(newAudioUrl);
       setError(null);
-      
     } catch (err) {
       setError(err.message || "Error generating TTS explanation.");
       console.error(err);
@@ -141,7 +140,7 @@ function NasaImage() {
   // Start puppet and audio in one step
   function startPuppetAndPlay(url) {
     setHasExpertStarted(true);
-    playAudio(url); 
+    playAudio(url);
   }
 
   function getRandomDate(startDate, endDate) {
@@ -152,9 +151,9 @@ function NasaImage() {
   }
 
   // Debug: see if isSpeaking changes
-//   useEffect(() => {
-//     console.log("isSpeaking changed:", isSpeaking);
-//   }, [isSpeaking]);
+  //   useEffect(() => {
+  //     console.log("isSpeaking changed:", isSpeaking);
+  //   }, [isSpeaking]);
 
   return (
     <div className="NasaImage text-white relative">
@@ -191,7 +190,15 @@ function NasaImage() {
         >
           <div className={ttsLoading ? "animate-spin" : ""}>
             <div className="sm:group-hover:rotate-12 duration-300 ease-in-out">
-              {!error ? (ttsLoading ? <TbLoader2 /> : <TbMoodSpark />) : <TbRefreshAlert/>}
+              {!error ? (
+                ttsLoading ? (
+                  <TbLoader2 />
+                ) : (
+                  <TbMoodSpark />
+                )
+              ) : (
+                <TbRefreshAlert />
+              )}
             </div>
           </div>
         </button>
@@ -247,17 +254,16 @@ function NasaImage() {
           </div>
 
           {/* Explanation text, shift if puppet is visible */}
-          <p className={`text-xl ${hasExpertStarted ? "sm:pr-[256px]" : ""}`}>
-            {imageData.explanation}
-          </p>
+          <div className={`${hasExpertStarted ? "sm:pr-[256px]" : ""}`}>
+            <p className={`text-xl lg:text-2xl sm:px-20 lg:px-32`}>
+              {imageData.explanation}
+            </p>
+          </div>
         </div>
       )}
 
       {/* The Puppet! Animates if isSpeaking=true */}
-      <ExpertPuppet 
-        isVisible={hasExpertStarted} 
-        isSpeaking={isSpeaking}
-      />
+      <ExpertPuppet isVisible={hasExpertStarted} isSpeaking={isSpeaking} />
     </div>
   );
 }

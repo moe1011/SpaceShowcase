@@ -49,8 +49,8 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/moe1011/space-showcase.git
-cd space-showcase
+git clone https://github.com/moe1011/SpaceShowcase.git
+cd SpaceShowcase
 
 2. Install Dependencies
 

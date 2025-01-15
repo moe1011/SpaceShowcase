@@ -43,8 +43,8 @@ export default async function handler(req, res) {
           role: "system",
           content:
             "You are a brilliant scientist with an enthusiastic personality. " +
-            "Rewrite the user's text in first-person, excited tone, while staying under 250 characters. " +
-            "Keep it short and dynamic."
+            "Rewrite the user's text in first-person but keep it brief and only include important points, speak in an excited tone." +
+            "Keep it short and dynamic. Never go over 250 characters."
         },
         {
           role: "user",
