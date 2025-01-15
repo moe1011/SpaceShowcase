@@ -1,33 +1,19 @@
 import { useState, useRef } from "react";
 
-/**
- * A custom hook that handles:
- * - Audio playback (creating an <Audio> instance)
- * - Web Audio API (AudioContext + AnalyserNode)
- * - Volume-based "isSpeaking" detection
- * - Start/stop/pause logic
- */
 export default function useAudioLogic() {
-  // States that describe audio + puppet
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  // Whether puppet has started talking at least once (to slide in)
-  const [hasExpertStarted, setHasExpertStarted] = useState(false);
 
-  // Refs for audio + Web Audio API
   const audioRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const dataArrayRef = useRef(null);
 
   /**
-   * Unlocks the AudioContext on user interaction (necessary for Safari on iOS).
+   * Ensure the audio context is unlocked and resumed (especially for iOS).
    */
   const unlockAudioContext = () => {
-    if (
-      audioContextRef.current &&
-      audioContextRef.current.state === "suspended"
-    ) {
+    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
       audioContextRef.current
         .resume()
         .catch((err) => console.error("Failed to unlock audio context:", err));
@@ -35,98 +21,89 @@ export default function useAudioLogic() {
   };
 
   /**
-   * Main method to start playback from a given URL,
-   * hook it up to an AnalyserNode for volume detection,
-   * and set up event listeners for playing/pausing/ending.
+   * Play or resume audio from the given URL.
+   * Ensure analyser and source nodes are reconnected.
    */
   function playAudio(url) {
-    stopAudio(); // in case something was already playing
+    unlockAudioContext();
+
+    if (audioRef.current && audioRef.current.src === url) {
+      audioRef.current.play().catch(console.error);
+      monitorAudioVolume();
+      setIsAudioPlaying(true);
+      return;
+    }
+
+    stopAudio(); // Stop and clean up any previous audio
 
     const newAudio = new Audio(url);
     audioRef.current = newAudio;
 
-    // Create or reuse the AudioContext
     if (!audioContextRef.current) {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioContextRef.current = audioContext;
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    // Unlock the AudioContext (important for Safari)
-    unlockAudioContext();
-
-    // Create analyser if it doesn't exist
+    // Create or reconnect analyser
     if (!analyserRef.current) {
       const analyser = audioContextRef.current.createAnalyser();
-      analyser.fftSize = 256; // smaller => more frequent data updates
+      analyser.fftSize = 256; // Smaller = faster updates
       analyserRef.current = analyser;
 
-      // Connect audio -> analyser -> destination
-      const source = audioContextRef.current.createMediaElementSource(newAudio);
-      source.connect(analyser);
-      analyser.connect(audioContextRef.current.destination);
-
-      // Array to store frequency data
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      dataArrayRef.current = dataArray;
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
     }
 
-    // Event listeners
+    // Always reconnect media element source
+    const source = audioContextRef.current.createMediaElementSource(newAudio);
+    source.connect(analyserRef.current);
+    analyserRef.current.connect(audioContextRef.current.destination);
+
     newAudio.onplay = () => {
       setIsAudioPlaying(true);
-      setHasExpertStarted(true);
-      monitorAudioVolume(); // Start monitoring volume
+      monitorAudioVolume();
     };
+
     newAudio.onpause = () => {
       setIsAudioPlaying(false);
       setIsSpeaking(false);
     };
+
     newAudio.onended = () => {
       setIsAudioPlaying(false);
       setIsSpeaking(false);
     };
 
-    // Start playing
-    newAudio.play().catch((err) => {
-      console.error("Audio playback error:", err);
-    });
+    newAudio.play().catch(console.error);
   }
 
   /**
-   * Continuously measure volume via requestAnimationFrame.
-   * If volume > threshold, set isSpeaking=true; else false.
+   * Continuously monitor audio volume using requestAnimationFrame.
    */
   function monitorAudioVolume() {
     if (!analyserRef.current || !dataArrayRef.current) return;
 
     const checkVolume = () => {
-      // If there's no analyser or the audio is paused/ended, stop talking + stop loop
-      if (
-        !analyserRef.current ||
-        !dataArrayRef.current ||
-        !audioRef.current ||
-        audioRef.current.paused ||
-        audioRef.current.ended
-      ) {
+      if (!audioRef.current || audioRef.current.paused || audioRef.current.ended) {
+        console.log("Audio paused or ended. Stopping volume monitoring.");
         setIsSpeaking(false);
-        return; // stop calling checkVolume
+        return;
       }
 
       analyserRef.current.getByteFrequencyData(dataArrayRef.current);
       const volume = dataArrayRef.current.reduce((sum, val) => sum + val, 0);
 
-      // Adjust the threshold to taste
-      setIsSpeaking(volume > 1500);
+      // Debug: Log volume to the console
+      // console.log("Volume:", volume);
 
-      // Keep looping while audio is playing
+      setIsSpeaking(volume > 3500); // Set threshold
+
       requestAnimationFrame(checkVolume);
     };
 
-    checkVolume();
+    requestAnimationFrame(checkVolume);
   }
 
   /**
-   * Immediately stops any playing audio, closes the audio context,
-   * and resets isSpeaking/isAudioPlaying.
+   * Stop and clean up audio playback.
    */
   function stopAudio() {
     if (audioRef.current) {
@@ -134,25 +111,13 @@ export default function useAudioLogic() {
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
+    // Don't close the audio context; it may be reused
     setIsAudioPlaying(false);
     setIsSpeaking(false);
   }
 
   /**
-   * Resets the puppet visibility. Call this anytime you want to hide the puppet.
-   */
-  function resetPuppet() {
-    setHasExpertStarted(false);
-    setIsSpeaking(false);
-    setIsAudioPlaying(false);
-  }
-
-  /**
-   * Toggles between pause and play if there's an audioRef.
+   * Toggle between play and pause for the current audio.
    */
   function togglePlayPause() {
     if (!audioRef.current) return;
@@ -163,14 +128,13 @@ export default function useAudioLogic() {
     }
   }
 
-  // Expose our states and methods
   return {
     isAudioPlaying,
+    setIsAudioPlaying,
     isSpeaking,
-    hasExpertStarted,
+    setIsSpeaking,
     playAudio,
     stopAudio,
     togglePlayPause,
-    resetPuppet,
   };
 }
