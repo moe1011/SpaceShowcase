@@ -25,12 +25,10 @@ export default function useAudioLogic() {
    * Ensure analyser and source nodes are reconnected.
    */
   function playAudio(url) {
-    // Ensure the AudioContext is unlocked
     unlockAudioContext();
   
-    // If audio already loaded for this URL, just resume and re-monitor volume
+    // If audio already loaded for this URL, just resume
     if (audioRef.current && audioRef.current.src === url) {
-      // Explicitly resume the context in case of Safari restrictions
       audioContextRef.current
         ?.resume()
         .then(() => {
@@ -42,8 +40,7 @@ export default function useAudioLogic() {
       return;
     }
   
-    // Otherwise, stop any existing audio and start fresh
-    stopAudio();
+    stopAudio(); // Stop and clean up any previous audio
   
     const newAudio = new Audio(url);
     audioRef.current = newAudio;
@@ -52,17 +49,19 @@ export default function useAudioLogic() {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
   
+    // Create or reconnect analyser
     if (!analyserRef.current) {
       const analyser = audioContextRef.current.createAnalyser();
-      analyser.fftSize = 256; // smaller => more frequent data updates
+      analyser.fftSize = 256; // Smaller = faster updates
       analyserRef.current = analyser;
-  
-      const source = audioContextRef.current.createMediaElementSource(newAudio);
-      source.connect(analyser);
-      analyser.connect(audioContextRef.current.destination);
   
       dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
     }
+  
+    // Always reconnect media element source
+    const source = audioContextRef.current.createMediaElementSource(newAudio);
+    source.connect(analyserRef.current);
+    analyserRef.current.connect(audioContextRef.current.destination);
   
     newAudio.onplay = () => {
       setIsAudioPlaying(true);
@@ -79,14 +78,13 @@ export default function useAudioLogic() {
       setIsSpeaking(false);
     };
   
-    // Start playback after explicitly resuming the AudioContext
+    // Ensure AudioContext is resumed before starting playback
     audioContextRef.current
       ?.resume()
       .then(() => {
-        newAudio.play().catch(console.error);
+        newAudio.play().catch(console.error); // Trigger autoplay here
       })
       .catch((err) => console.error("Failed to resume audio context:", err));
-      
   }
 
   /**

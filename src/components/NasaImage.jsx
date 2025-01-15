@@ -151,14 +151,10 @@ function NasaImage() {
     return new Date(randomTime).toISOString().split("T")[0];
   }
 
-
+  // Debug: see if isSpeaking changes
 //   useEffect(() => {
-//     console.log("in exp effect")
-//     if(hasExpertStarted === true){
-//         console.log("exp has started")
-//         togglePlayPause();
-//     }
-//   }, [hasExpertStarted, togglePlayPause]);
+//     console.log("isSpeaking changed:", isSpeaking);
+//   }, [isSpeaking]);
 
   return (
     <div className="NasaImage text-white relative">
