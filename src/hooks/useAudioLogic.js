@@ -25,54 +25,68 @@ export default function useAudioLogic() {
    * Ensure analyser and source nodes are reconnected.
    */
   function playAudio(url) {
+    // Ensure the AudioContext is unlocked
     unlockAudioContext();
-
+  
+    // If audio already loaded for this URL, just resume and re-monitor volume
     if (audioRef.current && audioRef.current.src === url) {
-      audioRef.current.play().catch(console.error);
-      monitorAudioVolume();
-      setIsAudioPlaying(true);
+      // Explicitly resume the context in case of Safari restrictions
+      audioContextRef.current
+        ?.resume()
+        .then(() => {
+          audioRef.current.play().catch(console.error);
+          monitorAudioVolume();
+          setIsAudioPlaying(true);
+        })
+        .catch((err) => console.error("Failed to resume audio context:", err));
       return;
     }
-
-    stopAudio(); // Stop and clean up any previous audio
-
+  
+    // Otherwise, stop any existing audio and start fresh
+    stopAudio();
+  
     const newAudio = new Audio(url);
     audioRef.current = newAudio;
-
+  
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
-
-    // Create or reconnect analyser
+  
     if (!analyserRef.current) {
       const analyser = audioContextRef.current.createAnalyser();
-      analyser.fftSize = 256; // Smaller = faster updates
+      analyser.fftSize = 256; // smaller => more frequent data updates
       analyserRef.current = analyser;
-
+  
+      const source = audioContextRef.current.createMediaElementSource(newAudio);
+      source.connect(analyser);
+      analyser.connect(audioContextRef.current.destination);
+  
       dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
     }
-
-    // Always reconnect media element source
-    const source = audioContextRef.current.createMediaElementSource(newAudio);
-    source.connect(analyserRef.current);
-    analyserRef.current.connect(audioContextRef.current.destination);
-
+  
     newAudio.onplay = () => {
       setIsAudioPlaying(true);
       monitorAudioVolume();
     };
-
+  
     newAudio.onpause = () => {
       setIsAudioPlaying(false);
       setIsSpeaking(false);
     };
-
+  
     newAudio.onended = () => {
       setIsAudioPlaying(false);
       setIsSpeaking(false);
     };
-
-    newAudio.play().catch(console.error);
+  
+    // Start playback after explicitly resuming the AudioContext
+    audioContextRef.current
+      ?.resume()
+      .then(() => {
+        newAudio.play().catch(console.error);
+      })
+      .catch((err) => console.error("Failed to resume audio context:", err));
+      
   }
 
   /**
