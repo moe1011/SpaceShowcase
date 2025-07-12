@@ -37,7 +37,7 @@ export default async function handler(req, res) {
      * The user-provided NASA explanation is in `explanation`.
      */
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4.1-mini",
       messages: [
         {
           role: "system",

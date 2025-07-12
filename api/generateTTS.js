@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   
   try {
     const response = await openai.audio.speech.create({
-      model: "tts-1",
+      model: "gpt-4o-mini-tts",
       voice: "ash",
       input: text,
     });
