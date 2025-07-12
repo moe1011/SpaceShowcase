@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import ExpertPuppet from "./ExpertPuppet";
 import useAudioLogic from "../hooks/useAudioLogic";
+import ImagePlaceholder from "./ImagePlaceholder"; // Import the placeholder
 import {
   TbMoodSpark,
   TbLoader2,
@@ -16,6 +17,8 @@ function NasaImage() {
   const [imageData, setImageData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isImageLoaded, setIsImageLoaded] = useState(false); // Track image load status
+  const [imageAspectRatio, setImageAspectRatio] = useState(null);
 
   // TTS audio for this image
   const [expertAudioUrl, setExpertAudioUrl] = useState(null);
@@ -55,8 +58,11 @@ function NasaImage() {
     setIsAudioPlaying(false);
     stopAudio();
     setExpertAudioUrl(null);
+    setImageData(null);
     setLoading(true);
     setError(null);
+    setIsImageLoaded(false); // Reset image loaded state
+    setImageAspectRatio(null);
 
     const randomDate = getRandomDate(
       "1995-06-16",
@@ -76,9 +82,28 @@ function NasaImage() {
 
       const data = await response.json();
       setImageData(data);
+
+      if (data.media_type === "image") {
+        const img = new Image();
+        img.onload = () => {
+          setImageAspectRatio(img.naturalHeight / img.naturalWidth);
+          setLoading(false);
+        };
+        img.onerror = () => {
+          console.error("Failed to load image for getting dimensions");
+          setLoading(false);
+          setError("There was an issue loading the image details.");
+        };
+        img.src = data.url;
+      } else {
+        setImageAspectRatio(9 / 16); // Default 16:9 for videos
+        setLoading(false);
+        if (data.media_type !== "image") {
+          setIsImageLoaded(true); // For videos, consider it "loaded"
+        }
+      }
     } catch (err) {
       setError(err.message || "Failed to fetch image. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -225,9 +250,19 @@ function NasaImage() {
         </p>
       )}
 
-      {/* Show NASA Image/Video if present */}
+      {/* Show placeholder or NASA Image/Video */}
+      {(loading || (imageData && !isImageLoaded)) && (
+        <ImagePlaceholder aspectRatio={imageAspectRatio} />
+      )}
+
       {imageData && (
-        <div className="flex flex-col w-full h-full items-center justify-center pt-5">
+        <div
+          className="flex flex-col w-full h-full items-center justify-center pt-5 sm:pt-0 transition-opacity duration-500"
+          style={{
+            opacity: isImageLoaded ? 1 : 0,
+            visibility: isImageLoaded ? "visible" : "hidden",
+          }}
+        >
           <h2 className="text-3xl text-center">{imageData.title}</h2>
           <p className="text-lg text-center">{imageData.date}</p>
           <div className="py-7 w-fit h-fit">
@@ -239,6 +274,7 @@ function NasaImage() {
                 src={imageData.url}
                 alt={imageData.title}
                 onClick={() => window.open(imageData.url, "_blank")}
+                onLoad={() => setIsImageLoaded(true)}
               />
             ) : (
               <div className="aspect-video">
@@ -248,21 +284,21 @@ function NasaImage() {
                   title={imageData.title}
                   allow="autoplay; encrypted-media"
                   frameBorder="0"
+                  allowFullScreen
+                  onLoad={() => setIsImageLoaded(true)}
                 ></iframe>
               </div>
             )}
           </div>
-
-          {/* Explanation text, shift if puppet is visible */}
-          <div className={`${hasExpertStarted ? "sm:pr-[256px]" : ""}`}>
-            <p className={`text-xl lg:text-2xl sm:px-20 lg:px-32`}>
+          <div className={`${hasExpertStarted ? "sm:pr-[128px]" : ""}`}>
+            <p className="sm:max-w-[1100px] text-xl lg:text-2xl sm:px-20 lg:px-32">
               {imageData.explanation}
             </p>
           </div>
         </div>
       )}
 
-      {/* The Puppet! Animates if isSpeaking=true */}
+      {/* Puppet Area */}
       <ExpertPuppet isVisible={hasExpertStarted} isSpeaking={isSpeaking} />
     </div>
   );
